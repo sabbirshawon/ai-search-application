@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const GOOGLE_API_KEY = ''; // Replace with your API key
-const GOOGLE_CSE_ID = ''; // Replace with your Search Engine ID
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; 
+const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID; 
 
 const SearchChatApp = () => {
   const [messages, setMessages] = useState([
@@ -150,6 +151,17 @@ const SearchChatApp = () => {
 
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto p-4 bg-gray-50">
+
+      <motion.h1 
+        className="text-center text-2xl font-bold text-blue-600 mb-4"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1 }}
+      >
+        Welcome to WeyAI
+      </motion.h1>
+
+
       <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 rounded-lg bg-white shadow">
         {messages.map((message, index) => (
           <div key={index} className="space-y-1">
