@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; 
-const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID; 
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+const GOOGLE_CSE_ID = import.meta.env.VITE_GOOGLE_CSE_ID;
+const AI_API_KEY = import.meta.env.VITE_AI_API_KEY; 
 
 const SearchChatApp = () => {
   const [messages, setMessages] = useState([
@@ -55,6 +56,54 @@ const SearchChatApp = () => {
     }
   };
 
+  const getDirectAnswer = (query) => {
+    const lowerCaseQuery = query.toLowerCase();
+  
+    // Handle time-related queries
+    if (lowerCaseQuery.includes('what time is it now') || lowerCaseQuery.includes('current time')) {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString();
+      return `The current time is ${timeString}.`;
+    }
+  
+    // Handle temperature-related queries
+    if (lowerCaseQuery.includes('what is the temperature now') || lowerCaseQuery.includes('current temperature')) {
+      return `I'm sorry, I cannot provide real-time temperature data. Please check a weather service.`;
+    }
+  
+    // Handle other specific queries
+    if (lowerCaseQuery.includes('hello') || lowerCaseQuery.includes('hi')) {
+      return 'Hello! How can I assist you today?';
+    }
+  
+    // If no specific query matches, return null
+    return null;
+  };
+
+  const askAI = async (query) => {
+    const url = 'https://api.cohere.ai/v1/generate';
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_AI_API_KEY}`
+    };
+    const body = JSON.stringify({
+      prompt: query,
+      max_tokens: 150
+    });
+  
+    try {
+      const response = await fetch(url, { method: 'POST', headers, body });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch AI response: ${response.status} ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      return data.generations[0].text.trim();
+    } catch (error) {
+      throw new Error('AI request failed: ' + error.message);
+    }
+  };
+
   const toggleTimeVisibility = (index, e) => {
     e.stopPropagation();
     setMessages(prev => prev.map((msg, i) => 
@@ -101,32 +150,34 @@ const SearchChatApp = () => {
     setIsLoading(true);
 
     try {
-      const { directAnswer, results } = await searchGoogle(trimmedInput);
-      
-      // If there's a direct answer, show it first
-      if (directAnswer) {
-        const aiDirectResponse = {
-          type: 'ai',
-          content: directAnswer,
-          timestamp: new Date(),
-          showTime: false
-        };
-        setMessages(prev => [...prev, aiDirectResponse]);
-      }
+      // Ask AI for a direct answer first
+      const aiResponse = await askAI(trimmedInput);
 
-      // Show search results
-      if (results.length > 0) {
-        const aiWebResponse = {
-          type: 'ai',
-          content: directAnswer ? 'Here are some additional results:' : `Here are the results for "${trimmedInput}":`,
-          searchResults: results,
-          timestamp: new Date(),
-          showTime: false
-        };
+      const aiDirectResponse = {
+        type: 'ai',
+        content: aiResponse,
+        timestamp: new Date(),
+        showTime: false
+      };
+      setMessages(prev => [...prev, aiDirectResponse]);
+
+      // If the AI response is insufficient, perform a Google search
+      if (aiResponse.includes("I don't know") || aiResponse.includes("I can't help")) {
+        const { directAnswer, results } = await searchGoogle(trimmedInput);
         
-        setMessages(prev => [...prev, aiWebResponse]);
-      } else if (!directAnswer) {
-        throw new Error('No results found');
+        if (results.length > 0) {
+          const aiWebResponse = {
+            type: 'ai',
+            content: `Here are the results for "${trimmedInput}":`,
+            searchResults: results,
+            timestamp: new Date(),
+            showTime: false
+          };
+          
+          setMessages(prev => [...prev, aiWebResponse]);
+        } else {
+          throw new Error('No results found');
+        }
       }
     } catch (error) {
       const errorMessage = {
